@@ -34,7 +34,7 @@ function init() {
     window.addEventListener("resize", reflow, false);
 
 
-
+    /*
     circle = new createjs.Shape();
     circle.graphics.beginFill("red").drawCircle(0, 0, 50);
     circle.x = 100;
@@ -43,6 +43,7 @@ function init() {
     circle.addEventListener("click", function (event) {
         circle.graphics.clear().beginFill("green").drawCircle(0, 0, 50);
     });
+    */
 
     createjs.Ticker.on("tick", tick);
     createjs.Ticker.setFPS(30);
@@ -94,12 +95,12 @@ function boardClick(event) {
 }
 
 function tick(event) {
+    /*
     var mydelta = Math.abs( (event.timeStamp % 4000) - 2000);
-
-   
     circle.x = 100 +  (mydelta) / 10;
     stage.update();
-
+    */
+    stage.update();
 }
 
 
