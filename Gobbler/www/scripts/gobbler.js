@@ -3,6 +3,7 @@ gobbler.stageHeight = 1920;
 gobbler.stageWidth = 1080;
 
 gobbler.board_state = [[0, 1, 0, 0], [-1, 0, 1, 0], [-1, 0, 0, 0], [1, 0, -1, -1]];
+gobbler.win_vectors = [];
 
 gobbler.pieces = [[],[]];
 gobbler.RED = 1;
@@ -10,13 +11,12 @@ gobbler.BLACK = -1;
 gobbler.NUMPIECES = 16;
 
 
-gobbler.init = function () {
 
+gobbler.init = function () {
     for (i=0; i < this.NUMPIECES; i++) {
         this.pieces[0][i] = new Piece("red");
         this.pieces[1][i] = new Piece("black");
     }
-    console.log(gobbler.board_state);
     this.draw();
 
 };
@@ -63,31 +63,37 @@ gobbler.resetPieces = function () {
 * 1 is red wins, -1 is black wins
 */
 gobbler.score = function () {
-    //check columns
-    var state = this.board_state;
-    for (var x = 0; x < 4; x++) {
-        if (state[x].reduce(function (a, b) { return a + b; }) == 4) { return 1; }
-        if (state[x].reduce(function (a, b) { return a + b; }) == -4) { return -1; }
-    }
-    // rotate and check again
-    var state = this.roate2DArray(state);
-    for (var x = 0; x < 4; x++) {
-        if (state[x].reduce(function (a, b) { return a + b; }) == 4) { return 1; }
-        if (state[x].reduce(function (a, b) { return a + b; }) == -4) { return -1; }
-    }
+    var score = 0;
 
-    // check diagonals
-    var sum = state[0][0] + state[1][1] + state[2][2] + state[3][3];
-    if (sum == 4) { return 1;}
-    if (sum == -4) { return -1; }
+    // update our vector of every 4 in a row
+    this.updateWinVectors();
 
-    // other diagonal
-    var sum = state[3][0] + state[2][1] + state[1][2] + state[0][3];
-    if (sum == 4) { return 1; }
-    if (sum == -4) { return -1; }
+    //score each vector
+    var score_vector = _.map(gobbler.win_vectors, function (arr) { return _.reduce(arr, gobbler.sum); });
+
+    if (_.contains(score_vector, 4)) { return 1; }  // red wins
+    if (_.contains(score_vector, -4)) { return -1; }  // black wins
+
+    // no winners, so guess at who is winning
+
+    // count three in a row's with an empty spot 
+    red_three_in_a_rows = (_.filter(score_vector, function (s) { return s == 3; })).length;
+    black_three_in_a_rows = (_.filter(score_vector, function (s) { return s == -3; })).length;
+
+    score += .1 * red_three_in_a_rows;
+    score += -.1 * black_three_in_a_rows;
+    
+    // finally, add some jitter so the AI doesn't play the same every time
+
+    score += (Math.random() - .5) * .05;
+
+    console.log("score is " + score);
+
 
     return 0;
 }
+
+gobbler.sum = function (a, b) { return a + b; }
 
 gobbler.roate2DArray = function (a) {
     return a.map(function (col, i) {
@@ -95,24 +101,42 @@ gobbler.roate2DArray = function (a) {
             return row[i]
         })
     });
-    
+}
+
+gobbler.updateWinVectors = function () {
+    this.win_vectors = [];
+    var rotated_state = this.roate2DArray(this.board_state);
+    for (i = 0; i < this.board_state.length ; i++) {
+        this.win_vectors.push(this.board_state[i]);
+        this.win_vectors.push(rotated_state[i]);
+    }
+
+    // now diags
+    var diag1 = new Array();
+    diag1.push(rotated_state[0][0]); diag1.push(rotated_state[1][1]); diag1.push(rotated_state[2][2]); diag1.push(rotated_state[3][3]);
+    this.win_vectors.push(diag1);
+
+    var diag2 = new Array();
+    diag2.push(rotated_state[3][0]); diag2.push(rotated_state[2][1]); diag2.push(rotated_state[1][2]); diag2.push(rotated_state[0][3]);
+    this.win_vectors.push(diag2);
 
 }
 
 
-console.log("setting timeout");
 
-setTimeout(scramble, 3000);
+setTimeout(scramble, 100);
 
 function scramble () {
-    console.log("scramble");
     //randomize the board layout
     for (x = 0; x < 4; x++) {
         for (y = 0; y < 4; y++) {
-            if (Math.random() > .5) {
+            var r = Math.random();
+            if (r < .25) {
                 gobbler.board_state[x][y] = 1;
-            } else {
+            } else if (r < .5) {
                 gobbler.board_state[x][y] = -1;
+            } else {
+                gobbler.board_state[x][y] = 0;
             }
         }
     }
@@ -122,7 +146,7 @@ function scramble () {
         var color = score > 0 ? "red" : "black";
         alert("The winner is " + color);
     } else {
-        setTimeout(scramble, 3000);
+        setTimeout(scramble, 2000);
     }
 }
 
