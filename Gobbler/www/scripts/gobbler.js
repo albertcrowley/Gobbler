@@ -2,13 +2,19 @@
 gobbler.stageHeight = 1920;
 gobbler.stageWidth = 1080;
 
-gobbler.board_state = [[0, 1, 0, 0], [-1, 0, 1, 0], [-1, 0, 0, 0], [1, 0, -1, -1]];
+gobbler.board_state = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]];
 gobbler.win_vectors = [];
 
 gobbler.pieces = [[],[]];
 gobbler.RED = 1;
+gobbler.RED_MIN = -1;
+gobbler.RED_MAX = 1;
 gobbler.BLACK = -1;
+gobbler.BLACK_MIN = 1;
+gobbler.BLACK_MAX = -1;
 gobbler.NUMPIECES = 16;
+
+gobbler.current_turn = gobbler.RED;
 
 
 
@@ -58,6 +64,56 @@ gobbler.resetPieces = function () {
 
 }
 
+gobbler.takeMove = function (color) {
+    var betterScore = function (color, new_score, old_score) { if (color == gobbler.RED) { return new_score > old_score } else { return new_score < old_score } };
+    var min_score = color == gobbler.RED ? gobbler.RED_MIN : gobbler.BLACK_MIN;
+
+    var move_list = this.getLegalMoves(color);
+    var best_move = new Object(); best_move.score = min_score; best_move.x = -1; best_move.y = -1;
+
+    _.each(move_list, function (move, idx, ctx) {
+        // make the move
+        var previous_state = gobbler.board_state[move[0]][move[1]];
+        gobbler.board_state[move[0]][move[1]] = color;
+        score = gobbler.score();
+        console.log("trying move " + move[0] + " x " + move[1] + " it has score " + score);
+        if ( betterScore(color, score, best_move.score)) {
+            console.log("new best move of " + move[0] + " x " + move[1] + " with a score of " + score);
+            best_move.x = move[0];
+            best_move.y = move[1];
+            best_move.score = score;
+        }
+        //undo the move
+        gobbler.board_state[move[0]][move[1]] = previous_state;
+    });
+
+    console.log(best_move);
+
+    if (best_move.x == -1) {
+        cosole.log("couldn't find a move!");
+    } else {
+        gobbler.board_state[best_move.x][best_move.y] = color;
+        gobbler.draw();
+    }
+
+}
+
+
+gobbler.getLegalMoves = function (color) {
+    var move_matrix =
+        _.map(this.board_state, function (arr) {
+            return _.map(arr, function (spot) { return spot == 0 ? true : false });
+        });
+
+    var move_list = [];
+    for (var x = 0; x < 4; x++) {
+        for (var y = 0; y < 4; y++) {
+            if (move_matrix[x][y]) { move_list.push([x, y]) };
+        }
+    }
+    return move_list;
+}
+
 /*
 * for now the score is just based on who won!
 * 1 is red wins, -1 is black wins
@@ -83,14 +139,21 @@ gobbler.score = function () {
     score += .1 * red_three_in_a_rows;
     score += -.1 * black_three_in_a_rows;
     
+    // count the number of 2's in otherwise empty rows
+    red_open_twos = (_.filter(gobbler.win_vectors, function (v) {
+        // return true if there are two reds and no blacks
+        var reds = (_.filter(v, function (element) { return element == gobbler.RED }).length);
+        var blacks = (_.filter(v, function (element) { return element == gobbler.BLACK }).length);
+        return (reds==2) && (blacks == 0)
+    })).length();
+
     // finally, add some jitter so the AI doesn't play the same every time
 
     score += (Math.random() - .5) * .05;
 
-    console.log("score is " + score);
+    console.log("returning score " + score);
 
-
-    return 0;
+    return score;
 }
 
 gobbler.sum = function (a, b) { return a + b; }
@@ -124,7 +187,6 @@ gobbler.updateWinVectors = function () {
 
 
 
-setTimeout(scramble, 100);
 
 function scramble () {
     //randomize the board layout
@@ -142,13 +204,29 @@ function scramble () {
     }
     gobbler.draw();
     var score = gobbler.score();
-    if (score != 0) {
+    if (Math.abs(score) == 1) {
         var color = score > 0 ? "red" : "black";
         alert("The winner is " + color);
     } else {
-        setTimeout(scramble, 2000);
+        //setTimeout(scramble, 2000);
     }
 }
 
+function simulateTurn() {
+    gobbler.takeMove(gobbler.current_turn);
+    gobbler.current_turn *= -1;
+    var score = gobbler.score();
+
+    if (Math.abs(score) == 1) {
+        var color = score > 0 ? "red" : "black";
+        alert("The winner is " + color);
+    } else if (gobbler.getLegalMoves(gobbler.current_turn).length == 0) {
+        alert("It's a draw then.");
+    }else{
+        setTimeout(simulateTurn, 1000);
+    }
+}
 
 gobbler.init();
+
+setTimeout(simulateTurn, 1000);
