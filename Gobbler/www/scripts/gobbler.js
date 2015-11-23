@@ -139,17 +139,26 @@ gobbler.score = function () {
     score += .1 * red_three_in_a_rows;
     score += -.1 * black_three_in_a_rows;
     
+
     // count the number of 2's in otherwise empty rows
     red_open_twos = (_.filter(gobbler.win_vectors, function (v) {
         // return true if there are two reds and no blacks
         var reds = (_.filter(v, function (element) { return element == gobbler.RED }).length);
         var blacks = (_.filter(v, function (element) { return element == gobbler.BLACK }).length);
         return (reds==2) && (blacks == 0)
-    })).length();
+    })).length;
+    score += .05 * red_open_twos;
+    black_open_twos = (_.filter(gobbler.win_vectors, function (v) {
+        // return true if there are two reds and no blacks
+        var reds = (_.filter(v, function (element) { return element == gobbler.RED }).length);
+        var blacks = (_.filter(v, function (element) { return element == gobbler.BLACK }).length);
+        return (reds == 0) && (blacks == 2)
+    })).length;
+    score -= .05 * black_open_twos;
 
     // finally, add some jitter so the AI doesn't play the same every time
 
-    score += (Math.random() - .5) * .05;
+    score += (Math.random() - .5) * .02;
 
     console.log("returning score " + score);
 
@@ -229,4 +238,4 @@ function simulateTurn() {
 
 gobbler.init();
 
-setTimeout(simulateTurn, 1000);
+jQuery("body").click(function() {setTimeout(simulateTurn, 1000)});
