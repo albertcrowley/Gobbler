@@ -195,6 +195,22 @@ gobbler.updateWinVectors = function () {
 }
 
 
+gobbler.boardClick = function (x, y) {
+    if (gobbler.current_turn == gobbler.RED) {
+        if (gobbler.board_state[x][y] == 0) {
+            gobbler.board_state[x][y] = 1;
+            gobbler.draw();
+            gobbler.checkForWinner();
+            gobbler.current_turn *= -1;
+            setTimeout(function () {
+                gobbler.takeMove(gobbler.BLACK);
+                gobbler.checkForWinner();
+                gobbler.current_turn = gobbler.RED;
+            }, 500);
+        }
+    }
+
+}
 
 
 function scramble () {
@@ -221,21 +237,29 @@ function scramble () {
     }
 }
 
-function simulateTurn() {
-    gobbler.takeMove(gobbler.current_turn);
-    gobbler.current_turn *= -1;
+gobbler.checkForWinner = function () {
     var score = gobbler.score();
 
     if (Math.abs(score) == 1) {
         var color = score > 0 ? "red" : "black";
         alert("The winner is " + color);
+        return score > 0 ? gobbler.RED : gobbler.BLACK;
     } else if (gobbler.getLegalMoves(gobbler.current_turn).length == 0) {
         alert("It's a draw then.");
-    }else{
-        setTimeout(simulateTurn, 1000);
+        return -2;
     }
 }
 
+function simulateTurn() {
+    gobbler.takeMove(gobbler.current_turn);
+    gobbler.current_turn *= -1;
+
+    gobbler.checkForWinner();
+    setTimeout(simulateTurn, 1000);
+}
+
+
+
 gobbler.init();
 
-jQuery("body").click(function() {setTimeout(simulateTurn, 1000)});
+//jQuery("body").click(function() {setTimeout(simulateTurn, 1000)});

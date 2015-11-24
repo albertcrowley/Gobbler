@@ -88,6 +88,8 @@ function boardClick(event) {
     }
 
     console.log("clicked on spot " + spotx + " - " + spoty);
+
+    gobbler.boardClick(spotx, spoty);
 }
 
 function tick(event) {
