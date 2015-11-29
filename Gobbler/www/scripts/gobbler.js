@@ -2,7 +2,11 @@
 gobbler.stageHeight = 1920;
 gobbler.stageWidth = 1080;
 
-gobbler.board_state = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]];
+gobbler.board_state = [[new Stack(), new Stack(), new Stack(), new Stack()],
+                       [new Stack(), new Stack(), new Stack(), new Stack()],
+                       [new Stack(), new Stack(), new Stack(), new Stack()],
+                       [new Stack(), new Stack(), new Stack(), new Stack()]];
+                       
 gobbler.win_vectors = [];
 
 gobbler.pieces = [[],[]];
@@ -20,8 +24,8 @@ gobbler.current_turn = gobbler.RED;
 
 gobbler.init = function () {
     for (i=0; i < this.NUMPIECES; i++) {
-        this.pieces[0][i] = new Piece("red");
-        this.pieces[1][i] = new Piece("black");
+        this.pieces[0][i] = new Piece("red", i % 4 + 1);
+        this.pieces[1][i] = new Piece("black", (i % 4 + 1) * -1);
     }
     this.draw();
 
@@ -35,9 +39,12 @@ gobbler.draw = function () {
     var black_index = 0;
     for (var x = 0; x < 4; x++) {
         for (var y = 0; y < 4; y++) {
-            if (this.board_state[x][y] != 0) {
-                var p = this.board_state[x][y] > 0 ? this.pieces[0][red_index++] : this.pieces[1][black_index++];
-                this.movePiece(p, x, y);
+            var top_piece = this.board_state[x][y].Peek();
+            if (top_piece != null) {
+                if (top_piece != null) {
+                    var p = top_piece > 0 ? this.pieces[0][red_index++] : this.pieces[1][black_index++];
+                    this.movePiece(p, x, y);
+                }
                
             }
         }
@@ -73,8 +80,7 @@ gobbler.takeMove = function (color) {
 
     _.each(move_list, function (move, idx, ctx) {
         // make the move
-        var previous_state = gobbler.board_state[move[0]][move[1]];
-        gobbler.board_state[move[0]][move[1]] = color;
+        gobbler.board_state[move[0]][move[1]].Push(move[2]);
         score = gobbler.score();
         console.log("trying move " + move[0] + " x " + move[1] + " it has score " + score);
         if ( betterScore(color, score, best_move.score)) {
@@ -84,15 +90,15 @@ gobbler.takeMove = function (color) {
             best_move.score = score;
         }
         //undo the move
-        gobbler.board_state[move[0]][move[1]] = previous_state;
+        gobbler.board_state[move[0]][move[1]].Pop(); // undo the move
     });
 
     console.log(best_move);
 
     if (best_move.x == -1) {
-        cosole.log("couldn't find a move!");
+        console.log("couldn't find a move!");
     } else {
-        gobbler.board_state[best_move.x][best_move.y] = color;
+        gobbler.board_state[best_move.x][best_move.y].Push(color);
         gobbler.draw();
     }
 
@@ -102,13 +108,15 @@ gobbler.takeMove = function (color) {
 gobbler.getLegalMoves = function (color) {
     var move_matrix =
         _.map(this.board_state, function (arr) {
-            return _.map(arr, function (spot) { return spot == 0 ? true : false });
+            return _.map(arr, function (spot) {
+                return spot.Peek() == null ? true : false
+            });
         });
 
     var move_list = [];
     for (var x = 0; x < 4; x++) {
         for (var y = 0; y < 4; y++) {
-            if (move_matrix[x][y]) { move_list.push([x, y]) };
+            if (move_matrix[x][y]) { move_list.push([x, y,color]) };
         }
     }
     return move_list;
@@ -168,8 +176,8 @@ gobbler.score = function () {
 gobbler.sum = function (a, b) { return a + b; }
 
 gobbler.roate2DArray = function (a) {
-    return a.map(function (col, i) {
-        return a.map(function (row) {
+    return _.map(a,function (col, i) {
+        return _.map(a,function (row) {
             return row[i]
         })
     });
@@ -177,9 +185,16 @@ gobbler.roate2DArray = function (a) {
 
 gobbler.updateWinVectors = function () {
     this.win_vectors = [];
-    var rotated_state = this.roate2DArray(this.board_state);
-    for (i = 0; i < this.board_state.length ; i++) {
-        this.win_vectors.push(this.board_state[i]);
+
+    var simplified_board_state = _.map(gobbler.board_state, function (arr) {
+        return _.map(arr, function (spot) {
+            return spot.AbsPeek();
+        })
+    });
+
+    var rotated_state = this.roate2DArray(simplified_board_state);
+    for (i = 0; i < simplified_board_state.length ; i++) {
+        this.win_vectors.push(simplified_board_state[i]);
         this.win_vectors.push(rotated_state[i]);
     }
 
@@ -197,8 +212,8 @@ gobbler.updateWinVectors = function () {
 
 gobbler.boardClick = function (x, y) {
     if (gobbler.current_turn == gobbler.RED) {
-        if (gobbler.board_state[x][y] == 0) {
-            gobbler.board_state[x][y] = 1;
+        if (gobbler.board_state[x][y].Peek() == null) {
+            gobbler.board_state[x][y].Push(1);
             gobbler.draw();
             gobbler.checkForWinner();
             gobbler.current_turn *= -1;
@@ -219,11 +234,11 @@ function scramble () {
         for (y = 0; y < 4; y++) {
             var r = Math.random();
             if (r < .25) {
-                gobbler.board_state[x][y] = 1;
+                gobbler.board_state[x][y].Push(1);
             } else if (r < .5) {
-                gobbler.board_state[x][y] = -1;
+                gobbler.board_state[x][y].Push(-1);
             } else {
-                gobbler.board_state[x][y] = 0;
+                gobbler.board_state[x][y] = new Stack();
             }
         }
     }
@@ -244,9 +259,12 @@ gobbler.checkForWinner = function () {
         var color = score > 0 ? "red" : "black";
         alert("The winner is " + color);
         return score > 0 ? gobbler.RED : gobbler.BLACK;
-    } else if (gobbler.getLegalMoves(gobbler.current_turn).length == 0) {
-        alert("It's a draw then.");
-        return -2;
+    } else {
+        var legal_moves = gobbler.getLegalMoves(gobbler.current_turn);
+        if (legal_moves.length == 0) {
+            alert("It's a draw then.");
+            return -2;
+        }
     }
 }
 
