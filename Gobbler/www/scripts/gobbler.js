@@ -188,7 +188,7 @@ gobbler.updateWinVectors = function () {
 
     var simplified_board_state = _.map(gobbler.board_state, function (arr) {
         return _.map(arr, function (spot) {
-            return spot.AbsPeek();
+            return spot.UnitPeek();
         })
     });
 

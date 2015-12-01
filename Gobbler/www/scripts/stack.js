@@ -42,6 +42,16 @@ function Stack() {
         }
     }
 
+    /* return 1 if the top of the stack is positive, -1 if it is negative */
+    this.UnitPeek = function () {
+        if (this.top === null) {
+            return null;
+        } else {
+            return this.top.data > 0 ? 1 : -1;
+        }
+    }
+
+
     this.Pop = function () {
         if (this.top === null) {
             return null;
