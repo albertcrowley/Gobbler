@@ -16,16 +16,32 @@ gobbler.RED_MAX = 1;
 gobbler.BLACK = -1;
 gobbler.BLACK_MIN = 1;
 gobbler.BLACK_MAX = -1;
-gobbler.NUMPIECES = 16;
+gobbler.NUMPIECES = 12;
+gobbler.MAX_PIECE_SIZE = 4;
+gobbler.selectedPiece = null;
 
 gobbler.current_turn = gobbler.RED;
 
 
 
 gobbler.init = function () {
+    var x = 100;
+    var red_y = 1800;
+    var black_y = 100;
     for (i=0; i < this.NUMPIECES; i++) {
-        this.pieces[0][i] = new Piece("red", i % 4 + 1);
-        this.pieces[1][i] = new Piece("black", (i % 4 + 1) * -1);
+        this.pieces[0][i] = new Piece("red", i % gobbler.MAX_PIECE_SIZE + 1);
+        this.pieces[1][i] = new Piece("black", (i % gobbler.MAX_PIECE_SIZE + 1) * -1);
+
+        x += this.pieces[0][i].radius * 2 + 20;
+
+        this.pieces[0][i].shape.x = x;
+        this.pieces[0][i].shape.y = red_y;
+
+        this.pieces[1][i].shape.y = black_y;
+        this.pieces[1][i].shape.x = x;
+
+        this.pieces[0][i].shape.addEventListener("click", gobbler.selectPiece);
+
     }
     this.draw();
 
@@ -44,6 +60,8 @@ gobbler.draw = function () {
                 if (top_piece != null) {
                     var p = top_piece > 0 ? this.pieces[0][red_index++] : this.pieces[1][black_index++];
                     this.movePiece(p, x, y);
+                    p.setSize(top_piece);
+                    console.log("setting piece to size " + top_piece);
                 }
                
             }
@@ -59,7 +77,8 @@ gobbler.movePiece = function (piece, x, y) {
 }
 
 gobbler.resetPieces = function () {
-    var radius = this.pieces[0][0].radius;
+    return;
+/*    var radius = this.pieces[0][0].radius;
     for (i = 0; i < this.NUMPIECES; i++) {   
         this.pieces[1][i].shape.x = 75 + i * radius * 2;
         this.pieces[1][i].shape.y = 75;
@@ -68,7 +87,7 @@ gobbler.resetPieces = function () {
         this.pieces[0][i].x = -1; this.pieces[0][i].y = -1;
         this.pieces[1][i].x = -1; this.pieces[1][i].y = -1;
     }
-
+    */
 }
 
 gobbler.takeMove = function (color) {
@@ -82,9 +101,7 @@ gobbler.takeMove = function (color) {
         // make the move
         gobbler.board_state[move[0]][move[1]].Push(move[2]);
         score = gobbler.score();
-        console.log("trying move " + move[0] + " x " + move[1] + " it has score " + score);
         if ( betterScore(color, score, best_move.score)) {
-            console.log("new best move of " + move[0] + " x " + move[1] + " with a score of " + score);
             best_move.x = move[0];
             best_move.y = move[1];
             best_move.score = score;
@@ -93,13 +110,21 @@ gobbler.takeMove = function (color) {
         gobbler.board_state[move[0]][move[1]].Pop(); // undo the move
     });
 
-    console.log(best_move);
 
     if (best_move.x == -1) {
         console.log("couldn't find a move!");
     } else {
         gobbler.board_state[best_move.x][best_move.y].Push(color);
-        gobbler.draw();
+
+        // find an unused piece and move it
+        for (var i = 0; i < gobbler.NUMPIECES; i++) {
+            if (!gobbler.pieces[1][i].onBoard()) {
+                gobbler.movePiece(gobbler.pieces[1][i], best_move.x, best_move.y);
+                stage.update();
+                break;
+            }
+        }
+        
     }
 
 }
@@ -168,8 +193,6 @@ gobbler.score = function () {
 
     score += (Math.random() - .5) * .02;
 
-    console.log("returning score " + score);
-
     return score;
 }
 
@@ -210,13 +233,20 @@ gobbler.updateWinVectors = function () {
 }
 
 
+gobbler.selectPiece = function (event) {
+    gobbler.selectedPiece = event.target.container;
+    console.log(event);
+}
+
+
 gobbler.boardClick = function (x, y) {
-    if (gobbler.current_turn == gobbler.RED) {
+    if (gobbler.current_turn == gobbler.RED && gobbler.selectedPiece != null) {
         if (gobbler.board_state[x][y].Peek() == null) {
-            gobbler.board_state[x][y].Push(1);
-            gobbler.draw();
+            gobbler.board_state[x][y].Push(gobbler.selectedPiece.size);
+            gobbler.movePiece(gobbler.selectedPiece, x, y);
             gobbler.checkForWinner();
             gobbler.current_turn *= -1;
+            stage.update();
             setTimeout(function () {
                 gobbler.takeMove(gobbler.BLACK);
                 gobbler.checkForWinner();
