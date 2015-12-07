@@ -6,7 +6,11 @@ gobbler.board_state = [[new Stack(), new Stack(), new Stack(), new Stack()],
                        [new Stack(), new Stack(), new Stack(), new Stack()],
                        [new Stack(), new Stack(), new Stack(), new Stack()],
                        [new Stack(), new Stack(), new Stack(), new Stack()]];
-                       
+
+gobbler.RESERVE_STACK_COUNT = 3;
+gobbler.reserve_state_red = [new Stack(), new Stack(), new Stack()];
+gobbler.reserve_state_black = [new Stack(), new Stack(), new Stack()];
+
 gobbler.win_vectors = [];
 
 gobbler.pieces = [[],[]];
@@ -28,19 +32,24 @@ gobbler.init = function () {
     var x = 100;
     var red_y = 1800;
     var black_y = 100;
+    var reserve_stack = -1;
     for (i=0; i < this.NUMPIECES; i++) {
+        // we are making 3 stacks, so every 4 pieces, increment x
+        if (i % 4 == 0) { x += 200; reserve_stack++}
+
         this.pieces[0][i] = new Piece("red", i % gobbler.MAX_PIECE_SIZE + 1);
-        this.pieces[1][i] = new Piece("black", (i % gobbler.MAX_PIECE_SIZE + 1) * -1);
-
-        x += this.pieces[0][i].radius * 2 + 20;
-
+        this.reserve_state_red[reserve_stack].Push(this.pieces[0][i]);
         this.pieces[0][i].shape.x = x;
         this.pieces[0][i].shape.y = red_y;
 
+
+        this.pieces[1][i] = new Piece("black", (i % gobbler.MAX_PIECE_SIZE + 1) * -1);
+        this.reserve_state_black[reserve_stack].Push(this.pieces[1][i]);
         this.pieces[1][i].shape.y = black_y;
         this.pieces[1][i].shape.x = x;
 
         this.pieces[0][i].shape.addEventListener("click", gobbler.selectPiece);
+
 
     }
     this.draw();
@@ -61,7 +70,7 @@ gobbler.draw = function () {
                     var p = top_piece > 0 ? this.pieces[0][red_index++] : this.pieces[1][black_index++];
                     this.movePiece(p, x, y);
                     p.setSize(top_piece);
-                    console.log("setting piece to size " + top_piece);
+                    //console.log("setting piece to size " + top_piece);
                 }
                
             }
@@ -99,11 +108,15 @@ gobbler.takeMove = function (color) {
 
     _.each(move_list, function (move, idx, ctx) {
         // make the move
-        gobbler.board_state[move[0]][move[1]].Push(move[2]);
+        var x = move[0];
+        var y = move[1];
+        var piece = move[2];
+        gobbler.board_state[x][y].Push(piece.size);
         score = gobbler.score();
         if ( betterScore(color, score, best_move.score)) {
             best_move.x = move[0];
             best_move.y = move[1];
+            best_move.piece = piece;
             best_move.score = score;
         }
         //undo the move
@@ -114,21 +127,24 @@ gobbler.takeMove = function (color) {
     if (best_move.x == -1) {
         console.log("couldn't find a move!");
     } else {
-        gobbler.board_state[best_move.x][best_move.y].Push(color);
-
-        // find an unused piece and move it
-        for (var i = 0; i < gobbler.NUMPIECES; i++) {
-            if (!gobbler.pieces[1][i].onBoard()) {
-                gobbler.movePiece(gobbler.pieces[1][i], best_move.x, best_move.y);
-                stage.update();
-                break;
-            }
-        }
+        gobbler.board_state[best_move.x][best_move.y].Push(best_move.piece.size * best_move.piece.color);
+        gobbler.movePiece(best_move.piece, best_move.x, best_move.y);
+        gobbler.removeFromReserve(best_move.piece);
+        stage.update();
+        console.log("moving a piece of size " + best_move.piece.size + " to " + best_move.x + " - " + best_move.y);
         
     }
 
 }
 
+gobbler.removeFromReserve = function (piece) {
+    var reserve = (piece.color == gobbler.BLACK || piece.color == "black") ? gobbler.reserve_state_black : gobbler.reserve_state_red;
+    for (var stack = 0; stack < gobbler.RESERVE_STACK_COUNT; stack++) {
+        if (reserve[stack].Peek() == piece) {
+            reserve[stack].Pop();
+        }
+    }
+}
 
 gobbler.getLegalMoves = function (color) {
     var move_matrix =
@@ -139,9 +155,18 @@ gobbler.getLegalMoves = function (color) {
         });
 
     var move_list = [];
-    for (var x = 0; x < 4; x++) {
-        for (var y = 0; y < 4; y++) {
-            if (move_matrix[x][y]) { move_list.push([x, y,color]) };
+    var reserve = (color == gobbler.BLACK) ? gobbler.reserve_state_black : gobbler.reserve_state_red;
+
+    for (var stack = 0; stack < gobbler.RESERVE_STACK_COUNT; stack++) {
+        if (reserve[stack].Peek() == null) { continue; }
+        var size = reserve[stack].Peek().size;
+        for (var x = 0; x < 4; x++) {
+            for (var y = 0; y < 4; y++) {
+                if (move_matrix[x][y]) { 
+                    move_list.push([x, y, reserve[stack].Peek() ] ); 
+                    //console.log("pushing size " + size + " for " + x + " - " + y);
+                };
+            }
         }
     }
     return move_list;
